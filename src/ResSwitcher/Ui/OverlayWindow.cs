@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
+using System.Windows.Interop;
 using ResSwitcher.Core;
 
 namespace ResSwitcher.Ui;
@@ -63,7 +64,11 @@ public sealed class OverlayWindow : Window
         AllowsTransparency = true;
         Background = Brushes.Transparent;
         SizeToContent = SizeToContent.Manual;
-        SourceInitialized += (_, _) => RestoreOrPlaceDefault();
+        SourceInitialized += (_, _) =>
+        {
+            DisplayApi.ConfigureToolWindow(new WindowInteropHelper(this).Handle);
+            RestoreOrPlaceDefault();
+        };
 
         // 右键菜单（WPF ContextMenu）
         var menu = new ContextMenu();
@@ -425,6 +430,11 @@ public sealed class OverlayWindow : Window
         ApplyAppearance();
         ClampToScreens();
         AnimateOpacity(config.Button.IdleAlpha);
+    }
+
+    internal void OpenSettingsFromTray()
+    {
+        _onOpenSettings();
     }
 
     internal void ApplyPrimaryShift((int X, int Y)? shift)

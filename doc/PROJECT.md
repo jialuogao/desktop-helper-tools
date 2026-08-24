@@ -42,7 +42,8 @@ desktop-helper-tools/
 │   │   └── AutostartManager.cs    # HKCU Run 注册表管理
 │   └── Ui/                    # WPF 层
 │       ├── OverlayWindow.cs   # 悬浮圆角窗：AllowsTransparency、双分区、拖拽、位置记忆
-│       └── SettingsWindow.cs  # 设置窗口（纯代码构建，无 XAML）
+│       ├── SettingsWindow.cs  # 设置窗口（纯代码构建，无 XAML）
+│       └── TrayIcon.cs        # 通知区域图标与托盘消息入口
 ├── tests/ResSwitcher.Tests/   # xunit 测试工程（唯一允许第三方包的地方）
 └── dist/ResSwitcher.exe       # 发布产物
 ```
@@ -58,6 +59,8 @@ desktop-helper-tools/
 | 鼠标悬停 | 整个按钮立即显现为完全不透明，该分区半透明白高亮 |
 | 松手 | 透明度 600ms 缓动淡出至静止值（默认 0.35） |
 | 右键 | 菜单：设置… / 退出 |
+| 通知区域图标左键 | 打开设置窗口 |
+| 通知区域图标右键 | 菜单：设置… / 退出 |
 
 ### 3.2 切换状态机
 
@@ -109,7 +112,7 @@ dotnet test tests/ResSwitcher.Tests -c Release   # 38 用例
 ## 6. 测试体系
 
 自动化（离线、注入 fake）：D1–D14 切换与主屏、C1–C7 配置、A1–A3 自启、L1–L6 日志与显示 API、E1–E3 错误上下文，以及 CCD 索引解码和几何变换用例，共 38 个。L1–L2 覆盖 session 文件命名、异常堆栈和三天前日志清理；D11–D12 覆盖按显示器 profile 隔离与不支持项过滤；D13–D14 覆盖主屏切换与分辨率目标解耦及 `auto` 跟随新主屏
-手动检查：M1 无控制台；M2 单实例；M3 分辨率切换生效；M4 拖拽手感；M5 右键菜单；M6 设置热更新；M7 不支持分辨率拦截；M8 自启注册表；M9 重启保留；M10 发布可运行；M11 出屏钳制；M12 删配置默认右上角；M13 主屏切换生效。
+手动检查：M1 无控制台；M2 单实例；M3 分辨率切换生效；M4 拖拽手感；M5 右键菜单；M6 设置热更新；M7 不支持分辨率拦截；M8 自启注册表；M9 重启保留；M10 发布可运行；M11 出屏钳制；M12 删配置默认右上角；M13 主屏切换生效；M14 通知区域图标可显示，左键打开设置，右键打开设置/退出菜单。
 
 **回归规则**：任何用例失败 = Blocker；修 bug 先写复现用例。
 
@@ -138,7 +141,7 @@ dotnet test tests/ResSwitcher.Tests -c Release   # 38 用例
 - **P/Invoke**：`[LibraryImport]` 需 unsafe 且不支持含 string 结构体（SYSLIB1051/1062），用经典 `[DllImport(CharSet=Unicode)]`
 - **DEVMODEW**：字段顺序是 ABI 契约；`dmPositionX/Y` 紧跟 `dmDisplayFrequency`；`dmSize` 用 `Marshal.SizeOf` 初始化
 - **主屏判定**：使用 `MONITORINFOF_PRIMARY` 标志；设主屏时将目标位置提交到虚拟桌面原点 `(0,0)`，不依赖 UI 框架的 Screen 类
-- **WPF 悬浮窗**：`AllowsTransparency=true + WindowStyle=None + Background=Transparent`，边缘干净（WinForms TransparencyKey 方案有抗锯齿杂边问题，已弃用）
+- **WPF 悬浮窗**：`AllowsTransparency=true + WindowStyle=None + Background=Transparent`，并在句柄创建后应用 `WS_EX_TOOLWINDOW`、清除 `WS_EX_APPWINDOW`，从任务栏窗口列表和 Alt+Tab 隐藏；边缘干净（WinForms TransparencyKey 方案有抗锯齿杂边问题，已弃用）
 - **exe 路径**：单文件发布用 `Environment.ProcessPath`（Assembly.Location 为空）
 - **日志**：每个进程会话使用独立日志文件名，写入时清理最后写入时间超过 3 天的旧日志
 - **显示 API 兼容性**：`CDS_TEST` 通过只代表驱动接受模式预检；在部分现代显示驱动上，真正使用 `CDS_UPDATEREGISTRY` 应用分辨率或主屏变更仍可能返回 `-1`。当前实现优先使用 Windows Display Configuration API（`QueryDisplayConfig`/`SetDisplayConfig`）提交完整活动拓扑，并正确解码虚拟模式下 source mode 索引的高 16 位；失败时才回退到 legacy API。两条路径均可能因显示驱动或当前会话状态被拒绝

@@ -4,7 +4,7 @@
 
 A lightweight Windows overlay for quickly switching display resolutions and changing the primary monitor with a draggable button.
 
-It is designed for workflows that move frequently between high and lower resolutions, such as gaming, remote desktop, presentations, and streaming. ResSwitcher runs in the background, does not occupy the taskbar, and provides settings and exit actions from the right-click menu.
+It is designed for workflows that move frequently between high and lower resolutions, such as gaming, remote desktop, presentations, and streaming. ResSwitcher runs in the background, does not occupy the taskbar window list or Alt+Tab, and remains available from the Windows notification area.
 
 ## Features
 
@@ -15,13 +15,14 @@ It is designed for workflows that move frequently between high and lower resolut
 - Windows Display Configuration API (CCD) for complete topology updates, with the legacy API retained as a compatibility fallback
 - Draggable placement, position persistence, hover reveal, and configurable idle opacity
 - Optional startup registration, single-instance execution, and human-readable JSON configuration
+- Notification-area icon with quick access to Settings and Exit
 - Built with WPF and .NET 10, with no third-party runtime dependency in the main project
 
 ## Quick Start
 
 ### Run the published application
 
-Run the release script from the repository to create `dist\\ResSwitcher.exe`, then launch it. The overlay button appears in the top-right area of the current primary monitor.
+Run the release script from the repository to create `dist\\ResSwitcher.exe`, then launch it. The overlay button appears in the top-right area of the current primary monitor, and a ResSwitcher icon appears in the Windows notification area.
 
 The framework-dependent build requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). To run without an installed .NET runtime, publish a self-contained build as described below.
 
@@ -30,7 +31,7 @@ The framework-dependent build requires the [.NET 10 Desktop Runtime](https://dot
 1. Drag the button to the desired position.
 2. Click the left half to swap the primary monitor with another active display.
 3. Click the right half to cycle through the configured resolution list.
-4. Right-click to open **Settings** or **Exit**.
+4. Right-click the overlay or the notification-area icon to open **Settings** or **Exit**. Left-click the notification-area icon to open Settings.
 5. In Settings, choose **Auto (current primary monitor)** or a fixed monitor, then add supported resolutions for each monitor.
 
 Settings apply immediately. The configuration file is stored at `%APPDATA%\\ResSwitcher\\config.json`; deleting it restores the defaults.

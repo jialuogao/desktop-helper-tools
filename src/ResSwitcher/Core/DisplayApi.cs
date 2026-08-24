@@ -40,10 +40,21 @@ public static class DisplayApi
     private const uint DISPLAYCONFIG_PATH_MODE_IDX_INVALID = 0xFFFFFFFF;
     private const uint DISPLAYCONFIG_PATH_SOURCE_MODE_IDX_INVALID = 0x0000FFFF;
     private const uint DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME = 1;
+    private const uint NIM_ADD = 0x00000000;
+    private const uint NIM_DELETE = 0x00000002;
+    private const uint NIF_MESSAGE = 0x00000001;
+    private const uint NIF_ICON = 0x00000002;
+    private const uint NIF_TIP = 0x00000004;
+    private const int IDI_APPLICATION = 32512;
+    private const int GWL_EXSTYLE = -20;
+    private const long WS_EX_TOOLWINDOW = 0x00000080;
+    private const long WS_EX_APPWINDOW = 0x00040000;
     private const int ERROR_SUCCESS = 0;
     private const int ERROR_INSUFFICIENT_BUFFER = 122;
     private const uint DISPLAY_DEVICE_ACTIVE = 0x01;
     internal static int DevmodeSizeForTests => Marshal.SizeOf<DEVMODEW>();
+
+    internal const int TrayCallbackMessage = 0x8001;
 
     internal static (int X, int Y, int Fields) PreparePrimaryMode(int currentX, int currentY, int fields)
         => (0, 0, DM_POSITION);
@@ -65,6 +76,18 @@ public static class DisplayApi
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int ChangeDisplaySettingsExW(string? lpszDeviceName, ref DEVMODEW lpDevMode, IntPtr hwndParent, uint dwFlags, IntPtr lParam);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr LoadIconW(IntPtr hInstance, IntPtr lpIconName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtrW(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    private static extern bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATAW lpData);
+
     private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT rect, IntPtr data);
 
     [DllImport("user32.dll")]
@@ -75,6 +98,25 @@ public static class DisplayApi
 
     [DllImport("user32.dll")]
     private static extern int GetDisplayConfigBufferSizes(uint flags, out uint numPathArrayElements, out uint numModeInfoArrayElements);
+
+    internal static bool AddTrayIcon(IntPtr windowHandle, uint iconId, string tooltip)
+    {
+        var data = CreateTrayIconData(windowHandle, iconId, tooltip);
+        return Shell_NotifyIconW(NIM_ADD, ref data);
+    }
+
+    internal static void RemoveTrayIcon(IntPtr windowHandle, uint iconId)
+    {
+        var data = CreateTrayIconData(windowHandle, iconId, string.Empty);
+        Shell_NotifyIconW(NIM_DELETE, ref data);
+    }
+
+    internal static void ConfigureToolWindow(IntPtr windowHandle)
+    {
+        long style = GetWindowLongPtrW(windowHandle, GWL_EXSTYLE).ToInt64();
+        style = (style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
+        SetWindowLongPtrW(windowHandle, GWL_EXSTYLE, new IntPtr(style));
+    }
 
     [DllImport("user32.dll")]
     private static extern int QueryDisplayConfig(
@@ -648,6 +690,21 @@ public static class DisplayApi
         return dm;
     }
 
+    private static NOTIFYICONDATAW CreateTrayIconData(
+        IntPtr windowHandle, uint iconId, string tooltip)
+    {
+        return new NOTIFYICONDATAW
+        {
+            cbSize = (uint)Marshal.SizeOf<NOTIFYICONDATAW>(),
+            hWnd = windowHandle,
+            uID = iconId,
+            uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
+            uCallbackMessage = (uint)TrayCallbackMessage,
+            hIcon = LoadIconW(IntPtr.Zero, (IntPtr)IDI_APPLICATION),
+            szTip = tooltip
+        };
+    }
+
     /// <summary>用设备名再查一次，取 DeviceString 作为友好名称；取不到时回退为设备名。</summary>
     private static string GetFriendlyName(string deviceName)
     {
@@ -788,6 +845,30 @@ public static class DisplayApi
         public string DeviceId;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string DeviceKey;
+    }
+
+    /// <summary>NOTIFYICONDATAW：通知区域图标数据。</summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct NOTIFYICONDATAW
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uID;
+        public uint uFlags;
+        public uint uCallbackMessage;
+        public IntPtr hIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szTip;
+        public uint dwState;
+        public uint dwStateMask;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string szInfo;
+        public uint uTimeoutOrVersion;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string szInfoTitle;
+        public uint dwInfoFlags;
+        public Guid guidItem;
+        public IntPtr hBalloonIcon;
     }
 
     /// <summary>DEVMODEW：显示模式。字段顺序与 Win32 ABI 严格一致。</summary>

@@ -38,7 +38,7 @@
 | `src/ResSwitcher/Program.cs`, `src/ResSwitcher/AppContext.cs` | [`01-runtime-and-configuration.md`](impl-notes/01-runtime-and-configuration.md), [`03-wpf-ui.md`](impl-notes/03-wpf-ui.md) |
 | `src/ResSwitcher/Core/AppConfig.cs`, `Core/Logger.cs`, `Core/AutostartManager.cs` | [`01-runtime-and-configuration.md`](impl-notes/01-runtime-and-configuration.md) |
 | `src/ResSwitcher/Core/DisplayApi.cs`, `Core/ResolutionSwitcher.cs` | [`02-display-and-switching.md`](impl-notes/02-display-and-switching.md) |
-| `src/ResSwitcher/Ui/OverlayWindow.cs`, `Ui/SettingsWindow.cs` | [`03-wpf-ui.md`](impl-notes/03-wpf-ui.md) |
+| `src/ResSwitcher/Ui/OverlayWindow.cs`, `Ui/SettingsWindow.cs`, `Ui/TrayIcon.cs` | [`03-wpf-ui.md`](impl-notes/03-wpf-ui.md) |
 | `tests/ResSwitcher.Tests/**`, `build-release.ps1`, `ResSwitcher.slnx` | [`04-testing-and-operations.md`](impl-notes/04-testing-and-operations.md) |
 
 ## Maintenance Boundary

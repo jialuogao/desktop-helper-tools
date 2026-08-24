@@ -27,7 +27,7 @@ dotnet test tests/ResSwitcher.Tests -c Release
 
 ## Manual Acceptance
 
-- Core tests do not cover WPF rendering, input routing, window lifetime, visual opacity, or real display-driver commits. Use the M1-M13 manual checklist in [`doc/PROJECT.md`](../PROJECT.md) after relevant UI or display changes.
+- Core tests do not cover WPF rendering, input routing, window lifetime, visual opacity, notification-area behavior, or real display-driver commits. Use the M1-M14 manual checklist in [`doc/PROJECT.md`](../PROJECT.md) after relevant UI or display changes.
 - M3 and M13 are hardware-dependent. A passing mode enumeration, CCD validation, or `CDS_TEST` is not sufficient to claim that a display change was committed; verify the actual resolution or primary-monitor result on the target machine.
 
 ## Regression Rules

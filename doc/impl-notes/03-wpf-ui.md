@@ -3,6 +3,12 @@
 > Parent index: [`doc/ai-implementation-notes.md`](../ai-implementation-notes.md)
 > Related: [`01-runtime-and-configuration.md`](01-runtime-and-configuration.md), [`02-display-and-switching.md`](02-display-and-switching.md), [`04-testing-and-operations.md`](04-testing-and-operations.md)
 
+## Notification-Area Icon
+
+- `TrayIcon` attaches an `HwndSource` message hook to the already-created `OverlayWindow`; the overlay keeps `ShowInTaskbar=false` and is explicitly marked with `WS_EX_TOOLWINDOW` while clearing `WS_EX_APPWINDOW`, so it is hidden from both the taskbar window list and Alt+Tab. `DisplayApi` registers the icon through `Shell_NotifyIconW`.
+- A left click on the notification-area icon opens Settings. A right click opens the overlay's existing Settings/Exit `ContextMenu`, so both entry points share the same actions.
+- `AppContext.OnExit` removes the icon and unregisters the message hook. Tray registration failures are logged and do not prevent the overlay from starting.
+
 ## Overlay Window
 
 - `OverlayWindow` is a borderless, transparent, topmost WPF window with `ShowInTaskbar=false`, no XAML, and a code-built visual tree. The content is a rounded rectangle with two equal zones: left for primary-monitor switching and right for resolution switching.

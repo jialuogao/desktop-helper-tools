@@ -12,6 +12,7 @@ public sealed class AppContext : Application
     private readonly AppConfig _config;
     private readonly ResolutionSwitcher _switcher;
     private readonly OverlayWindow _overlay;
+    private readonly TrayIcon? _tray;
 
     public AppContext()
     {
@@ -45,6 +46,14 @@ public sealed class AppContext : Application
 
         MainWindow = _overlay;
         _overlay.Show();
+        try
+        {
+            _tray = new TrayIcon(_overlay);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"创建通知区域图标失败：{ex.Message}");
+        }
 
         if (configLoadError is not null)
             ShowProblem("配置文件无法读取", $"程序已使用默认设置启动。\n\n{configLoadError}\n\n请右键悬浮按钮 →「设置…」重新保存配置。\n\n日志：{Logger.LogFile}", MessageBoxImage.Warning);
@@ -137,4 +146,10 @@ public sealed class AppContext : Application
 
     private static void ShowProblem(string title, string message, MessageBoxImage image)
         => MessageBox.Show(message, title, MessageBoxButton.OK, image);
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _tray?.Dispose();
+        base.OnExit(e);
+    }
 }

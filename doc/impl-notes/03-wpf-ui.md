@@ -6,7 +6,7 @@
 ## Notification-Area Icon
 
 - `TrayIcon` attaches an `HwndSource` message hook to the already-created `OverlayWindow`; the overlay keeps `ShowInTaskbar=false` and is explicitly marked with `WS_EX_TOOLWINDOW` while clearing `WS_EX_APPWINDOW`, so it is hidden from both the taskbar window list and Alt+Tab. `DisplayApi` registers the icon through `Shell_NotifyIconW`.
-- A left click on the notification-area icon opens Settings. A right click opens the overlay's existing Settings/Exit `ContextMenu`, so both entry points share the same actions.
+- A left click on the notification-area icon opens Settings. A right click uses a native `TrackPopupMenuEx` menu owned by the overlay HWND, with the same Settings/Exit callbacks as the overlay menu. Native menu tracking handles outside-click dismissal; a trailing `WM_NULL` completes notification-area menu deactivation after the hidden-icons flyout closes. The actual desktop interaction remains part of the M14 manual acceptance check.
 - `AppContext.OnExit` removes the icon and unregisters the message hook. Tray registration failures are logged and do not prevent the overlay from starting.
 
 ## Overlay Window
@@ -14,7 +14,7 @@
 - `OverlayWindow` is a borderless, transparent, topmost WPF window with `ShowInTaskbar=false`, no XAML, and a code-built visual tree. The content is a rounded rectangle with two equal zones: left for primary-monitor switching and right for resolution switching.
 - The left and right icons are WPF `Geometry` objects. Fixed icon dimensions avoid unreliable `NaN`/`MaxWidth` layout combinations inside the grid.
 - The window receives behavior through callbacks supplied by `AppContext`; it does not own display-switching or configuration persistence logic.
-- Right-click uses a WPF `ContextMenu` with settings and exit commands.
+- Right-click on the overlay uses a WPF `ContextMenu` with settings and exit commands. The notification-area right-click path intentionally uses a native menu because it is invoked from the Windows hidden-icons flyout and needs native menu tracking.
 
 ## Pointer and Opacity Rules
 

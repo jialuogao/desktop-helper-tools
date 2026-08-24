@@ -49,6 +49,13 @@ public static class DisplayApi
     private const int GWL_EXSTYLE = -20;
     private const long WS_EX_TOOLWINDOW = 0x00000080;
     private const long WS_EX_APPWINDOW = 0x00040000;
+    private const uint MF_STRING = 0x00000000;
+    private const uint TPM_RIGHTBUTTON = 0x00000002;
+    private const uint TPM_NONOTIFY = 0x00000080;
+    private const uint TPM_RETURNCMD = 0x00000100;
+    private const uint WM_NULL = 0x00000000;
+    private const uint TraySettingsCommand = 1;
+    private const uint TrayExitCommand = 2;
     private const int ERROR_SUCCESS = 0;
     private const int ERROR_INSUFFICIENT_BUFFER = 122;
     private const uint DISPLAY_DEVICE_ACTIVE = 0x01;
@@ -85,6 +92,28 @@ public static class DisplayApi
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr CreatePopupMenu();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool AppendMenuW(IntPtr hMenu, uint uFlags, UIntPtr uIDNewItem, string lpNewItem);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint TrackPopupMenuEx(
+        IntPtr hMenu, uint uFlags, int x, int y, IntPtr hWnd, IntPtr lptpm);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool DestroyMenu(IntPtr hMenu);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool GetCursorPos(out POINTL point);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATAW lpData);
 
@@ -116,6 +145,38 @@ public static class DisplayApi
         long style = GetWindowLongPtrW(windowHandle, GWL_EXSTYLE).ToInt64();
         style = (style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
         SetWindowLongPtrW(windowHandle, GWL_EXSTYLE, new IntPtr(style));
+    }
+
+    internal static uint ShowTrayContextMenu(IntPtr ownerWindowHandle)
+    {
+        IntPtr menu = CreatePopupMenu();
+        if (menu == IntPtr.Zero)
+            return 0;
+
+        try
+        {
+            if (!AppendMenuW(menu, MF_STRING, (UIntPtr)TraySettingsCommand, "设置…") ||
+                !AppendMenuW(menu, MF_STRING, (UIntPtr)TrayExitCommand, "退出"))
+                return 0;
+
+            GetCursorPos(out var cursor);
+            SetForegroundWindow(ownerWindowHandle);
+            uint command = TrackPopupMenuEx(
+                menu,
+                TPM_RIGHTBUTTON | TPM_NONOTIFY | TPM_RETURNCMD,
+                cursor.x,
+                cursor.y,
+                ownerWindowHandle,
+                IntPtr.Zero);
+
+            // 通知区域菜单必须在跟踪结束后收到一条空消息，系统才会完成失活收尾。
+            PostMessageW(ownerWindowHandle, WM_NULL, IntPtr.Zero, IntPtr.Zero);
+            return command;
+        }
+        finally
+        {
+            DestroyMenu(menu);
+        }
     }
 
     [DllImport("user32.dll")]

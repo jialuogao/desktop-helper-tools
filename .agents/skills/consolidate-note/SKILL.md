@@ -3,7 +3,7 @@ name: consolidate-note
 description: "Use when consolidating a ResSwitcher session into durable documentation, updating implementation notes, syncing docs with current C# code, or recording verified design decisions and known limitations."
 allowed-tools: Read Write Edit Grep
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   scope: reswitcher
 ---
 
@@ -39,6 +39,20 @@ Write standalone statements that include the mechanism, invariant, and evidence 
 - Bad: The user reported a problem, then several approaches were tried, and the final attempt seemed to work.
 
 Record unresolved behavior as a known limitation with its scope and next technical direction. For example, distinguish a successful `CDS_TEST` preflight from a successful `ChangeDisplaySettingsExW` commit; do not claim the latter from the former.
+
+## Learning Capture
+
+Every consolidation must include a brief learning pass: ask whether the session exposed a reusable root cause, misleading assumption, diagnostic technique, compatibility boundary, validation gap, or repository workflow improvement. Capture it when another agent could reasonably avoid the same failure or make a better decision next time.
+
+Route the learning to the narrowest durable location:
+
+- Implementation mechanisms, invariants, root causes, and compatibility limits go in the matching `doc/impl-notes/*.md` module note.
+- User-visible behavior, test-matrix changes, manual acceptance criteria, and architecture contracts go in `doc/PROJECT.md`.
+- Repository-wide agent constraints or mandatory development workflow changes go in `AGENTS.md`.
+- Changes to how this consolidation skill itself should inspect, classify, or validate work go in this `SKILL.md`.
+- Keep `doc/ai-implementation-notes.md` as routing metadata; do not place learning narratives there.
+
+Before adding a learning, search the target document and merge with an existing fact instead of appending a duplicate. State the scope and evidence when useful, separate verified facts from known limitations, and omit chat chronology, transient machine details, one-off timestamps, and speculative explanations. If the lesson suggests a skill or agent-instruction change but the correct policy is not yet clear, record the concrete gap and proposed direction in the relevant implementation note rather than silently broadening repository-wide rules.
 
 ## Validation
 

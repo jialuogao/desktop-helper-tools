@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 using ResSwitcher.Core;
 
@@ -55,12 +54,28 @@ public sealed class TrayIcon : IDisposable
 
     private void ShowContextMenu()
     {
-        if (_disposed || _owner.ContextMenu is not { } menu)
+        if (_disposed)
             return;
 
-        menu.Placement = PlacementMode.MousePoint;
-        menu.IsOpen = true;
+        uint command = DisplayApi.ShowTrayContextMenu(_source.Handle);
+        switch (ResolveMenuCommand(command))
+        {
+            case TrayMenuAction.Settings:
+                ShowSettings();
+                break;
+            case TrayMenuAction.Exit:
+                if (_owner is OverlayWindow overlay)
+                    overlay.ExitFromTray();
+                break;
+        }
     }
+
+    internal static TrayMenuAction ResolveMenuCommand(uint command) => command switch
+    {
+        1 => TrayMenuAction.Settings,
+        2 => TrayMenuAction.Exit,
+        _ => TrayMenuAction.None
+    };
 
     public void Dispose()
     {
@@ -71,4 +86,11 @@ public sealed class TrayIcon : IDisposable
         DisplayApi.RemoveTrayIcon(_source.Handle, IconId);
         _source.RemoveHook(WndProc);
     }
+}
+
+internal enum TrayMenuAction
+{
+    None,
+    Settings,
+    Exit
 }

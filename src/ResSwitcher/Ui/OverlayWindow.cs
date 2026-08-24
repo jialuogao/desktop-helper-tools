@@ -437,6 +437,11 @@ public sealed class OverlayWindow : Window
         _onOpenSettings();
     }
 
+    internal void ExitFromTray()
+    {
+        _onExit();
+    }
+
     internal void ApplyPrimaryShift((int X, int Y)? shift)
     {
         if (shift is not { } offset || (offset.X == 0 && offset.Y == 0))

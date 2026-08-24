@@ -1,49 +1,100 @@
-# ResSwitcher — 屏幕分辨率切换悬浮工具
+# ResSwitcher
 
-Windows 常驻后台小工具：屏幕上有一个可拖拽的半透明圆角长方形悬浮按钮，单击一键切换指定显示器分辨率（如 3440x1440 ↔ 2560x1440），右键打开设置或退出。支持开机自启。
+[简体中文](README.zh.md) | English
 
-## 功能简介
+A lightweight Windows overlay for quickly switching display resolutions and changing the primary monitor with a draggable button.
 
-- **悬浮按钮**：左区切换主显示器，右区切换分辨率；可拖拽，拖拽时完全不透明，松手后约 600ms 淡出至静止透明度（默认 0.35）
-- **悬停显现**：鼠标移到按钮上时立即完全显现，移开后恢复静止透明度
-- **单击切换**：
-  - 单分辨率模式：在"当前"和"设定"分辨率之间来回切换
-  - 双分辨率模式：固定在两个分辨率之间切换；若当前是其他分辨率，第一次点击切到分辨率1，再点切到分辨率2，不回到原始
-- **右键菜单**：设置… / 退出
-- **设置界面**：开机自启、自动或固定目标显示器、按钮大小/颜色/静止透明度；每块显示器独立配置分辨率列表，不支持的项目自动灰显
-- **位置记忆**：按钮位置自动保存，下次启动恢复；首次运行出现在屏幕 1 右上角
-- **主屏互换**：切换主屏时保持显示器相对布局，并保持悬浮按钮在原物理位置
-- **单实例**：重复启动自动退出
-- 零第三方运行时依赖（.NET 10 + WPF）
+It is designed for workflows that move frequently between high and lower resolutions, such as gaming, remote desktop, presentations, and streaming. ResSwitcher runs in the background, does not occupy the taskbar, and provides settings and exit actions from the right-click menu.
 
-## 使用方法
+## Features
 
-1. 运行 `ResSwitcher.exe`，屏幕右上角出现半透明圆角长方形按钮
-2. 拖动到任意位置；单击切换分辨率
-3. 右键 →「设置…」配置显示器、外观、分辨率模式；勾选「开机自动启动」可注册自启
-4. 右键 →「退出」结束程序
+- Two-zone overlay button: switch the primary monitor on the left and the resolution on the right
+- `auto` resolution targeting follows the current primary monitor, including after a primary-monitor swap
+- Independent resolution profiles for each monitor, with unsupported modes filtered at runtime
+- Single-item round trips and circular multi-item resolution lists
+- Windows Display Configuration API (CCD) for complete topology updates, with the legacy API retained as a compatibility fallback
+- Draggable placement, position persistence, hover reveal, and configurable idle opacity
+- Optional startup registration, single-instance execution, and human-readable JSON configuration
+- Built with WPF and .NET 10, with no third-party runtime dependency in the main project
 
-配置文件位于 `%APPDATA%\ResSwitcher\config.json`，可手动编辑或删除后重置。
+## Quick Start
 
-项目说明：行为规格见 [`doc/PROJECT.md`](doc/PROJECT.md)，面向 agent 的实现索引见 [`doc/ai-implementation-notes.md`](doc/ai-implementation-notes.md)。
+### Run the published application
 
-## 构建方法
+Run the release script from the repository to create `dist\\ResSwitcher.exe`, then launch it. The overlay button appears in the top-right area of the current primary monitor.
 
-需要 .NET 10 SDK（`dotnet --list-sdks` 确认）。
+The framework-dependent build requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0). To run without an installed .NET runtime, publish a self-contained build as described below.
+
+### Basic usage
+
+1. Drag the button to the desired position.
+2. Click the left half to swap the primary monitor with another active display.
+3. Click the right half to cycle through the configured resolution list.
+4. Right-click to open **Settings** or **Exit**.
+5. In Settings, choose **Auto (current primary monitor)** or a fixed monitor, then add supported resolutions for each monitor.
+
+Settings apply immediately. The configuration file is stored at `%APPDATA%\\ResSwitcher\\config.json`; deleting it restores the defaults.
+
+## Build and Test
+
+Development and publishing require the .NET 10 SDK. Check the installed SDKs with `dotnet --list-sdks`.
 
 ```powershell
-# 构建
+# Build
 dotnet build -c Release
 
-# 运行测试
+# Run the full test suite
 dotnet test tests/ResSwitcher.Tests -c Release
 
-# 发布单个 exe（本机需已装 .NET 10 运行时）
+# Build, test, and publish a win-x64 single-file application
+.\\build-release.ps1
+```
+
+The release script writes the result to `dist\\ResSwitcher.exe`. A manual publish is also available:
+
+```powershell
 dotnet publish src/ResSwitcher -c Release -r win-x64 `
   -p:PublishSingleFile=true -p:SelfContained=false `
   -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-产物：`src/ResSwitcher/bin/Release/net10.0-windows/win-x64/publish/ResSwitcher.exe`
+For machines without the .NET 10 Desktop Runtime, change `-p:SelfContained=false` to `-p:SelfContained=true`. The resulting file will be larger.
 
-> 如需分发到没有 .NET 运行时的机器，把 `-p:SelfContained=true` 即可（体积会变大）。
+The automated suite currently contains 38 tests covering the switching state machine, monitor profiles, configuration, logging, startup registration, CCD mode indices, and primary-monitor target selection. Real display-driver commits still require manual validation on the target machine.
+
+## Technical Overview
+
+```text
+src/ResSwitcher/
+|-- Core/                 Display API, switching, configuration, logging, startup
+|-- Ui/                   WPF overlay and settings window
+|-- AppContext.cs         Application composition root
+`-- Program.cs            Single-instance entry point
+
+tests/ResSwitcher.Tests/  Offline unit and API-boundary tests
+doc/                      Behavior specification and implementation notes
+```
+
+All Win32 P/Invoke declarations are kept in `Core/DisplayApi.cs`. Display configuration uses `QueryDisplayConfig` and `SetDisplayConfig`, and resolution changes read the target monitor's live supported-mode list before submitting a request. See [`doc/PROJECT.md`](doc/PROJECT.md) for the behavior specification and [`doc/ai-implementation-notes.md`](doc/ai-implementation-notes.md) for the implementation index.
+
+## Known Limitations
+
+- Resolution and primary-monitor changes can be affected by the Windows session, graphics driver, display topology, and exclusive-fullscreen applications. Rejected requests show diagnostic context and are written to the session log.
+- Changing the primary monitor changes Windows virtual-desktop coordinates. ResSwitcher adjusts the overlay position, but mixed-DPI monitor layouts should still be checked on the target machine.
+- The release script produces a framework-dependent `win-x64` single-file application by default.
+
+## Contributing
+
+Issues and pull requests are welcome. Behavior changes should include focused tests. Before submitting a change, run:
+
+```powershell
+dotnet build -c Release
+dotnet test tests/ResSwitcher.Tests -c Release
+.\\build-release.ps1
+```
+
+The behavior specification, manual acceptance checklist, and architecture constraints are documented in [`doc/PROJECT.md`](doc/PROJECT.md).
+
+## License
+
+ResSwitcher is released under the MIT License. See [`LICENSE`](LICENSE).

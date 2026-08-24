@@ -1,7 +1,7 @@
 # ResSwitcher Implementation Notes
 
 > Agent-facing index for durable implementation knowledge.
-> User-facing behavior and repository constraints remain in [`doc/PROJECT.md`](PROJECT.md); usage instructions remain in [`README.md`](../README.md).
+> User-facing behavior and repository constraints remain in [`doc/PROJECT.md`](PROJECT.md); usage instructions are available in [`README.md`](../README.md) and [`README.zh.md`](../README.zh.md).
 
 ## Document Index
 
@@ -12,7 +12,7 @@
 | [`impl-notes/03-wpf-ui.md`](impl-notes/03-wpf-ui.md) | WPF composition, overlay interaction, DPI/position handling, and settings UI |
 | [`impl-notes/04-testing-and-operations.md`](impl-notes/04-testing-and-operations.md) | Test boundaries, validation commands, release packaging, and manual verification |
 | [`PROJECT.md`](PROJECT.md) | Canonical Chinese architecture and behavior specification |
-| [`../README.md`](../README.md) | User-facing setup and operation guide |
+| [`../README.md`](../README.md), [`../README.zh.md`](../README.zh.md) | User-facing setup and operation guides |
 
 ## Agent Workflows
 

@@ -25,7 +25,8 @@ desktop-helper-tools/
 ├── ResSwitcher-Build.lnk      # 发布流程快捷方式（运行 build-release.ps1）
 ├── build-release.ps1          # 一键发布：构建→测试→发布到 dist\
 ├── create-shortcut.ps1        # 快捷方式创建（幂等，丢失后重跑恢复）
-├── README.md                  # 面向使用者的说明
+├── README.md                  # 面向使用者的英文说明
+├── README.zh.md               # 面向使用者的中文说明
 ├── doc/
 │   ├── PROJECT.md             # 行为规格与仓库约束
 │   ├── ai-implementation-notes.md # agent-facing 实现笔记索引
@@ -101,7 +102,7 @@ X/Y 为 `int.MinValue`(-2147483648) 表示无记录。`MonitorProfiles` 优先�
 
 ```powershell
 dotnet build -c Release                          # 必须 0 error 0 warning
-dotnet test tests/ResSwitcher.Tests -c Release   # 36 用例
+dotnet test tests/ResSwitcher.Tests -c Release   # 38 用例
 .\build-release.ps1                              # 一键发布到 dist\
 ```
 

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>ResSwitcher</AssemblyName>
+    <RootNamespace>ResSwitcher</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 允许测试工程访问 internal 委托以注入 fake -->
+    <InternalsVisibleTo Include="ResSwitcher.Tests" />
+  </ItemGroup>
+</Project>

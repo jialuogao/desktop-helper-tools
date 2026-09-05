@@ -61,7 +61,7 @@ dotnet publish src/ResSwitcher -c Release -r win-x64 `
 
 For machines without the .NET 10 Desktop Runtime, change `-p:SelfContained=false` to `-p:SelfContained=true`. The resulting file will be larger.
 
-The automated suite currently contains 38 tests covering the switching state machine, monitor profiles, configuration, logging, startup registration, CCD mode indices, and primary-monitor target selection. Real display-driver commits still require manual validation on the target machine.
+The automated suite currently contains 43 tests covering the switching state machine, monitor profiles, configuration, logging, startup registration, CCD mode indices, primary-monitor target selection, and physical bounds change recording upon resolution changes. Real display-driver commits still require manual validation on the target machine.
 
 ## Technical Overview
 

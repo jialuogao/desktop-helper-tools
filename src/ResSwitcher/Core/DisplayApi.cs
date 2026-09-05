@@ -24,6 +24,7 @@ public static class DisplayApi
 {
     // ---- Win32 常量 ----
     private const int CDS_UPDATEREGISTRY = 0x01;
+    private const int CDS_TEST = 0x02;
     private const int CDS_SET_PRIMARY = 0x10;
     private const int DISP_CHANGE_SUCCESSFUL = 0;
     private const int DM_PELSWIDTH = 0x80000;
@@ -71,6 +72,9 @@ public static class DisplayApi
 
     /// <summary>最近一次显示 API 失败的可诊断信息；成功调用会清空。</summary>
     public static string? LastError { get; private set; }
+
+    /// <summary>清空错误信息。</summary>
+    public static void ClearLastError() => LastError = null;
 
     // ---- P/Invoke（仅本文件允许出现）----
 
@@ -298,7 +302,13 @@ public static class DisplayApi
             }
 
             if (TrySetDisplayConfigResolution(deviceName, res))
-                return true;
+            {
+                var actual = GetCurrentResolution(deviceName);
+                if (actual == res)
+                    return true;
+
+                SetError($"现代显示配置 API 返回成功，但实际读取分辨率 ({actual}) 与目标 ({res}) 不符");
+            }
 
             string modernError = LastError ?? "现代显示配置 API 未能应用请求";
 
@@ -313,10 +323,28 @@ public static class DisplayApi
             dm.dmPelsWidth = res.Width;
             dm.dmPelsHeight = res.Height;
 
+            int testHr = ChangeDisplaySettingsExW(deviceName, ref dm, IntPtr.Zero, CDS_TEST, IntPtr.Zero);
+            if (testHr != DISP_CHANGE_SUCCESSFUL)
+            {
+                SetError($"现代显示配置 API 失败：{modernError}；系统拒绝将 {deviceName} 切换为 {res}（预检 CDS_TEST 返回 {testHr}: {DescribeChangeResult(testHr)}）");
+                return false;
+            }
+
             int hr = ChangeDisplaySettingsExW(deviceName, ref dm, IntPtr.Zero, CDS_UPDATEREGISTRY, IntPtr.Zero);
             if (hr != DISP_CHANGE_SUCCESSFUL)
+            {
                 SetError($"现代显示配置 API 失败：{modernError}；系统拒绝将 {deviceName} 切换为 {res}，ChangeDisplaySettingsExW 返回 {hr}: {DescribeChangeResult(hr)}");
-            return hr == DISP_CHANGE_SUCCESSFUL;
+                return false;
+            }
+
+            var actualLegacy = GetCurrentResolution(deviceName);
+            if (actualLegacy != res)
+            {
+                SetError($"ChangeDisplaySettingsExW 返回成功，但实际读取分辨率 ({actualLegacy}) 与目标 ({res}) 不符");
+                return false;
+            }
+
+            return true;
         }
         catch (Exception ex)
         {
@@ -395,8 +423,14 @@ public static class DisplayApi
 
             if (TrySetDisplayConfigPrimary(deviceName, out var configShift))
             {
-                LastPrimaryShift = configShift;
-                return true;
+                string currentPrimary = GetPrimaryDeviceName();
+                if (string.Equals(currentPrimary, deviceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    LastPrimaryShift = configShift;
+                    return true;
+                }
+
+                SetError($"现代显示配置 API 返回成功，但实际主显示器仍为 {currentPrimary}");
             }
 
             string modernError = LastError ?? "现代显示配置 API 未能应用请求";
@@ -414,14 +448,32 @@ public static class DisplayApi
             dm.dmPositionY = primaryMode.Y;
             dm.dmFields = primaryMode.Fields;
 
+            int testHr = ChangeDisplaySettingsExW(deviceName, ref dm, IntPtr.Zero,
+                CDS_TEST | CDS_SET_PRIMARY, IntPtr.Zero);
+            if (testHr != DISP_CHANGE_SUCCESSFUL)
+            {
+                SetError($"现代显示配置 API 失败：{modernError}；系统拒绝将 {deviceName} 设为主屏（预检 CDS_TEST 返回 {testHr}: {DescribeChangeResult(testHr)}）");
+                return false;
+            }
+
             // Windows 会随主屏变更整体平移虚拟桌面，保持其他显示器的相对布局。
             int hr = ChangeDisplaySettingsExW(deviceName, ref dm, IntPtr.Zero,
                 CDS_UPDATEREGISTRY | CDS_SET_PRIMARY, IntPtr.Zero);
             if (hr != DISP_CHANGE_SUCCESSFUL)
+            {
                 SetError($"现代显示配置 API 失败：{modernError}；系统拒绝将 {deviceName} 设为主屏，ChangeDisplaySettingsExW 返回 {hr}: {DescribeChangeResult(hr)}");
-            if (hr == DISP_CHANGE_SUCCESSFUL)
-                LastPrimaryShift = primaryShift;
-            return hr == DISP_CHANGE_SUCCESSFUL;
+                return false;
+            }
+
+            string newPrimary = GetPrimaryDeviceName();
+            if (!string.Equals(newPrimary, deviceName, StringComparison.OrdinalIgnoreCase))
+            {
+                SetError($"ChangeDisplaySettingsExW 返回成功，但实际主显示器仍为 {newPrimary}");
+                return false;
+            }
+
+            LastPrimaryShift = primaryShift;
+            return true;
         }
         catch (Exception ex)
         {

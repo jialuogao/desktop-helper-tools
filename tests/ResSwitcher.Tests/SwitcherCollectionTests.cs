@@ -283,4 +283,25 @@ public class SwitcherCollectionTests
         Assert.Equal(SwitchResult.Success, result);
         Assert.Equal([R2], calls);
     }
+
+    // D15：切换成功后记录 LastResolutionChange 边界信息
+    [Fact]
+    public void D15_RecordsLastResolutionChange_WithOldAndNewBounds()
+    {
+        var (s, calls) = Create(Other, [[R1.Width, R1.Height], [R2.Width, R2.Height]]);
+        int boundsCall = 0;
+        s._getBounds = _ =>
+        {
+            boundsCall++;
+            return boundsCall == 1 ? (0, 0, 2560, 1440) : (0, 0, 1920, 1080);
+        };
+
+        var result = s.Toggle();
+
+        Assert.Equal(SwitchResult.Success, result);
+        Assert.NotNull(s.LastResolutionChange);
+        Assert.Equal(Monitor, s.LastResolutionChange!.DeviceName);
+        Assert.Equal(new DisplayBounds(0, 0, 2560, 1440), s.LastResolutionChange.OldBounds);
+        Assert.Equal(new DisplayBounds(0, 0, 1920, 1080), s.LastResolutionChange.NewBounds);
+    }
 }

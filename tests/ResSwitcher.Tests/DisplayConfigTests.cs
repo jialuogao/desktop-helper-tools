@@ -30,4 +30,13 @@ public class DisplayConfigTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             DisplayApi.RebasePositions([(0, 0)], 1));
     }
+
+    [Fact]
+    public void Resolution_EqualityAndToString_BehavesCorrectly()
+    {
+        var r1 = new Resolution(1920, 1080);
+        var r2 = new Resolution(1920, 1080);
+        Assert.Equal(r1, r2);
+        Assert.Equal("1920 × 1080", r1.ToString());
+    }
 }

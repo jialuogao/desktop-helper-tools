@@ -69,6 +69,7 @@ desktop-helper-tools/
 分辨率列表按显示器 profile 独立保存；每次切换前读取目标显示器支持列表，profile 中不支持的项目按不存在处理，不会提交给系统。
 单模式：`current == target ? original : target`（original 首次采样；启动即在 target 时取支持列表像素数最大的其他模式）。
 双模式：`==res1→res2；==res2→res1；其他→res1`（无显式状态，实时 current 决定，永不回原始）
+切换成功后生成 `ResolutionChangeInfo`（记录目标显示器变更前后的物理边界），由悬浮窗按比例等比缩放其在目标显示器上的相对坐标，避免分辨率由高调低（如 2560x1440 → 1920x1080）时悬浮窗被挤压挤到相邻显示器。
 
 **主屏（左区）**——
 `DisplayApi.TrySetPrimaryMonitor`：优先通过 `QueryDisplayConfig` 读取完整活动拓扑，将当前主屏之外的目标 source 放到 `(0,0)`、其他 source 同步平移并把目标路径置首，再以 `SetDisplayConfig` 验证并保存应用。失败时回退到 legacy `ChangeDisplaySettingsExW`，实际应用仍取决于显示驱动兼容性。Windows 会整体平移虚拟桌面以保持屏幕相对位置，应用层按同一偏移补偿悬浮窗，保持其所在物理屏幕和相对位置。主屏切换与设置中的分辨率目标解耦；无论分辨率目标是 `auto` 还是固定显示器，左区都在当前主屏与另一块活动显示器之间互换。`auto` 仅在右区分辨率切换时解析当前主屏，因此主屏互换后右区会跟随新的主屏。
@@ -105,13 +106,13 @@ X/Y 为 `int.MinValue`(-2147483648) 表示无记录。`MonitorProfiles` 优先�
 
 ```powershell
 dotnet build -c Release                          # 必须 0 error 0 warning
-dotnet test tests/ResSwitcher.Tests -c Release   # 41 用例
+dotnet test tests/ResSwitcher.Tests -c Release   # 43 用例
 .\build-release.ps1                              # 一键发布到 dist\
 ```
 
 ## 6. 测试体系
 
-自动化（离线、注入 fake）：D1–D14 切换与主屏、C1–C7 配置、A1–A3 自启、L1–L6 日志与显示 API、E1–E3 错误上下文、CCD 索引解码和几何变换，以及托盘原生命令映射用例，共 41 个。L1–L2 覆盖 session 文件命名、异常堆栈和三天前日志清理；D11–D12 覆盖按显示器 profile 隔离与不支持项过滤；D13–D14 覆盖主屏切换与分辨率目标解耦及 `auto` 跟随新主屏
+自动化（离线、注入 fake）：D1–D15 切换与主屏、C1–C7 配置、A1–A3 自启、L1–L6 日志与显示 API、E1–E3 错误上下文、CCD 索引解码和几何变换，以及托盘原生命令映射用例，共 43 个。L1–L2 覆盖 session 文件命名、异常堆栈和三天前日志清理；D11–D12 覆盖按显示器 profile 隔离与不支持项过滤；D13–D14 覆盖主屏切换与分辨率目标解耦及 `auto` 跟随新主屏；D15 覆盖分辨率切换物理边界变化记录
 手动检查：M1 无控制台；M2 单实例；M3 分辨率切换生效；M4 拖拽手感；M5 右键菜单；M6 设置热更新；M7 不支持分辨率拦截；M8 自启注册表；M9 重启保留；M10 发布可运行；M11 出屏钳制；M12 删配置默认右上角；M13 主屏切换生效；M14 通知区域图标可显示，左键打开设置，右键打开设置/退出菜单，点击其他应用或桌面后菜单关闭。
 
 **回归规则**：任何用例失败 = Blocker；修 bug 先写复现用例。
@@ -144,6 +145,7 @@ dotnet test tests/ResSwitcher.Tests -c Release   # 41 用例
 - **WPF 悬浮窗**：`AllowsTransparency=true + WindowStyle=None + Background=Transparent`，并在句柄创建后应用 `WS_EX_TOOLWINDOW`、清除 `WS_EX_APPWINDOW`，从任务栏窗口列表和 Alt+Tab 隐藏；边缘干净（WinForms TransparencyKey 方案有抗锯齿杂边问题，已弃用）
 - **exe 路径**：单文件发布用 `Environment.ProcessPath`（Assembly.Location 为空）
 - **日志**：每个进程会话使用独立日志文件名，写入时清理最后写入时间超过 3 天的旧日志
-- **显示 API 兼容性**：`CDS_TEST` 通过只代表驱动接受模式预检；在部分现代显示驱动上，真正使用 `CDS_UPDATEREGISTRY` 应用分辨率或主屏变更仍可能返回 `-1`。当前实现优先使用 Windows Display Configuration API（`QueryDisplayConfig`/`SetDisplayConfig`）提交完整活动拓扑，并正确解码虚拟模式下 source mode 索引的高 16 位；失败时才回退到 legacy API。两条路径均可能因显示驱动或当前会话状态被拒绝
+- **显示 API 兼容性与稳健性**：`CDS_TEST` 通过代表驱动接受模式预检。当前实现优先使用 Windows Display Configuration API（`QueryDisplayConfig`/`SetDisplayConfig`）提交完整活动拓扑，并在应用后通过 `GetCurrentResolution` / `GetPrimaryDeviceName` 进行实际效果读回校验；当现代 API 失败回退到 legacy `ChangeDisplaySettingsExW` 路径时，先执行 `CDS_TEST` 预检，通过后再应用并校验读回，避免直接提交不受支持模式导致驱动崩溃或显示异常。
+- **悬浮窗层级与位置缩放**：在每次分辨率、主屏或配置变更后，悬浮窗主动重置 `Topmost` 属性以确保层级不会被其他窗口抢占；分辨率切换成功后，UI 层通过 `ApplyResolutionChange` 将悬浮窗物理坐标按目标显示器缩放比例等比调整并钳制（ClampToScreens），防止分辨率调低时按钮出屏或落到相邻显示器。
 - **WPF/WinForms DPI**：WPF 单位是设备无关像素（1/96"），与 Win32 物理像素换算需 `CompositionTarget.TransformToDevice`
 - **ApplicationContext→Application**：WPF 用 `Application` 子类作组合根，`MainWindow` 绑定悬浮窗，关闭即退出

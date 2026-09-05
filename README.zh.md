@@ -63,7 +63,7 @@ dotnet publish src/ResSwitcher -c Release -r win-x64 `
 
 需要在没有 .NET 10 Desktop Runtime 的机器上运行时，将 `-p:SelfContained=false` 改为 `-p:SelfContained=true`，生成的文件体积会更大。
 
-当前自动化测试共 38 个，覆盖切换状态机、显示器 profile、配置读写、日志、自启、CCD 索引和主屏切换目标选择。真实显示驱动提交仍需在目标机器上进行手动验收。
+当前自动化测试共 43 个，覆盖切换状态机、显示器 profile、配置读写、日志、自启、CCD 索引、主屏切换目标选择和分辨率切换物理边界记录。真实显示驱动提交仍需在目标机器上进行手动验收。
 
 ## 技术概览
 

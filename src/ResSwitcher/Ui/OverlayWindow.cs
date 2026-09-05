@@ -424,11 +424,18 @@ public sealed class OverlayWindow : Window
 
     // ---- 配置热更新 ----
 
+    public void EnsureTopmost()
+    {
+        Topmost = false;
+        Topmost = true;
+    }
+
     public void ApplyConfig(AppConfig config)
     {
         _config = config;
         ApplyAppearance();
         ClampToScreens();
+        EnsureTopmost();
         AnimateOpacity(config.Button.IdleAlpha);
     }
 
@@ -445,7 +452,10 @@ public sealed class OverlayWindow : Window
     internal void ApplyPrimaryShift((int X, int Y)? shift)
     {
         if (shift is not { } offset || (offset.X == 0 && offset.Y == 0))
+        {
+            EnsureTopmost();
             return;
+        }
 
         double scale = GetDpiScale();
         Left += offset.X / scale;
@@ -453,7 +463,92 @@ public sealed class OverlayWindow : Window
         _config.Button.X = (int)(Left + 10);
         _config.Button.Y = (int)(Top + 10);
         _onConfigDirty();
+        EnsureTopmost();
         Logger.Info($"主屏切换后保持悬浮窗物理位置: 偏移=({offset.X},{offset.Y}), 新位置=({_config.Button.X},{_config.Button.Y})");
+    }
+
+    internal void ApplyResolutionChange(ResolutionChangeInfo? changeInfo)
+    {
+        if (changeInfo is not { } change ||
+            change.OldBounds.Width <= 0 || change.OldBounds.Height <= 0 ||
+            change.NewBounds.Width <= 0 || change.NewBounds.Height <= 0)
+        {
+            EnsureTopmost();
+            return;
+        }
+
+        var oldB = change.OldBounds;
+        var newB = change.NewBounds;
+
+        if (oldB.Width == newB.Width && oldB.Height == newB.Height &&
+            oldB.X == newB.X && oldB.Y == newB.Y)
+        {
+            EnsureTopmost();
+            return;
+        }
+
+        double scale = GetDpiScale();
+        double btnX = (Left + 10) * scale;
+        double btnY = (Top + 10) * scale;
+        double btnW = (Width - 20) * scale;
+        double btnH = (Height - 20) * scale;
+
+        double btnCenterX = btnX + btnW / 2;
+        double btnCenterY = btnY + btnH / 2;
+
+        double finalBtnX = btnX;
+        double finalBtnY = btnY;
+
+        bool isOnTargetMonitor = btnCenterX >= oldB.X && btnCenterX <= oldB.X + oldB.Width &&
+                                 btnCenterY >= oldB.Y && btnCenterY <= oldB.Y + oldB.Height;
+
+        if (isOnTargetMonitor)
+        {
+            double relX = btnX - oldB.X;
+            double relY = btnY - oldB.Y;
+            double scaleX = (double)newB.Width / oldB.Width;
+            double scaleY = (double)newB.Height / oldB.Height;
+
+            double newBtnX = newB.X + relX * scaleX;
+            double newBtnY = newB.Y + relY * scaleY;
+
+            double minX = newB.X;
+            double maxX = Math.Max(newB.X, newB.X + newB.Width - btnW);
+            double minY = newB.Y;
+            double maxY = Math.Max(newB.Y, newB.Y + newB.Height - btnH);
+
+            finalBtnX = Math.Clamp(newBtnX, minX, maxX);
+            finalBtnY = Math.Clamp(newBtnY, minY, maxY);
+        }
+        else
+        {
+            if (btnCenterX > oldB.X + oldB.Width)
+            {
+                finalBtnX += (newB.X + newB.Width) - (oldB.X + oldB.Width);
+            }
+            else if (btnCenterX < oldB.X)
+            {
+                finalBtnX += newB.X - oldB.X;
+            }
+
+            if (btnCenterY > oldB.Y + oldB.Height)
+            {
+                finalBtnY += (newB.Y + newB.Height) - (oldB.Y + oldB.Height);
+            }
+            else if (btnCenterY < oldB.Y)
+            {
+                finalBtnY += newB.Y - oldB.Y;
+            }
+        }
+
+        Left = (finalBtnX / scale) - 10;
+        Top = (finalBtnY / scale) - 10;
+        _config.Button.X = (int)Math.Round(finalBtnX);
+        _config.Button.Y = (int)Math.Round(finalBtnY);
+        _onConfigDirty();
+        ClampToScreens();
+        EnsureTopmost();
+        Logger.Info($"分辨率切换后按比例调整悬浮窗位置: 原位置=({btnX:F0},{btnY:F0}), 新位置=({_config.Button.X},{_config.Button.Y})");
     }
 
     protected override void OnClosed(EventArgs e)

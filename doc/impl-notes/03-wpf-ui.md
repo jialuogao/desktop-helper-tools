@@ -28,7 +28,9 @@
 - WPF window coordinates are device-independent pixels, while saved button coordinates and Win32 monitor bounds are treated as physical pixels. `CompositionTarget.TransformToDevice` supplies the scale conversion.
 - A saved position uses `ButtonCfg.NoPosition` (`int.MinValue`) as the missing-value sentinel. Negative coordinates are valid for monitors placed to the left of the primary display.
 - Startup restores a saved position, checks intersection against every active monitor, and moves the button to the primary work area with a 16-pixel edge margin when the saved position is missing or completely off-screen.
+- `EnsureTopmost` explicitly re-asserts `Topmost` after resolution, primary-monitor, or configuration changes so the overlay window layer is not demoted beneath other application windows.
 - After a successful primary-monitor switch, `ApplyPrimaryShift` moves the window by the reported physical-pixel shift, persists the compensated position, and logs the new coordinates.
+- After a successful resolution switch, `ApplyResolutionChange` reads `LastResolutionChange`. When the button resides on the target monitor, it scales relative X/Y coordinates proportionally to the new dimensions and clamps the result to valid screen bounds, preventing the overlay from being pushed onto adjacent displays when stepping down resolution (e.g. 2560x1440 → 1920x1080). When the button is on an adjacent display, coordinates shift with origin changes.
 
 ## Settings Window
 

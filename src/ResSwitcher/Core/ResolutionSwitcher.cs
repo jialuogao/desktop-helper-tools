@@ -23,6 +23,15 @@ public enum SwitcherResult
     ApiFailed
 }
 
+/// <summary>显示器物理边界（位置 + 尺寸）。</summary>
+public sealed record DisplayBounds(int X, int Y, int Width, int Height);
+
+/// <summary>分辨率切换前后目标显示器的物理边界变更信息。</summary>
+public sealed record ResolutionChangeInfo(
+    string DeviceName,
+    DisplayBounds OldBounds,
+    DisplayBounds NewBounds);
+
 /// <summary>
 /// 切换目标显示器解析策略：
 /// "auto" = 每次点击时自动使用主显示器；否则为固定设备名（如 "\\.\DISPLAY1"）。
@@ -67,6 +76,7 @@ public sealed class ResolutionSwitcher
     internal Func<string> _getPrimary = DisplayApi.GetPrimaryDeviceName;
     internal Func<List<DisplayDeviceInfo>> _enumerateMonitors = DisplayApi.EnumerateMonitors;
     internal Func<string, bool> _trySetPrimary = DisplayApi.TrySetPrimaryMonitor;
+    internal Func<string, (int X, int Y, int Width, int Height)> _getBounds = DisplayApi.GetMonitorBounds;
 
     private readonly AppConfig _config;
 
@@ -82,6 +92,9 @@ public sealed class ResolutionSwitcher
     /// <summary>最近一次主屏切换造成的虚拟桌面坐标偏移，供悬浮窗保持物理位置。</summary>
     internal (int X, int Y)? LastPrimaryShift { get; private set; }
 
+    /// <summary>最近一次分辨率切换的显示器物理边界变更信息，供悬浮窗按比例调整位置。</summary>
+    public ResolutionChangeInfo? LastResolutionChange { get; private set; }
+
     public ResolutionSwitcher(AppConfig config)
     {
         _config = config;
@@ -93,6 +106,7 @@ public sealed class ResolutionSwitcher
     public SwitchResult Toggle()
     {
         LastError = null;
+        LastResolutionChange = null;
         // auto 模式：每次点击时解析主显示器，跟随系统主屏变化
         string device;
         try
@@ -152,6 +166,14 @@ public sealed class ResolutionSwitcher
         }
 
         // 执行切换
+        (int X, int Y, int Width, int Height) oldBounds = default;
+        try
+        {
+            oldBounds = _getBounds(device);
+        }
+        catch { }
+        DisplayApi.ClearLastError();
+
         bool changed;
         try
         {
@@ -173,6 +195,18 @@ public sealed class ResolutionSwitcher
         try
         {
             CurrentResolution = _getCurrent(device);
+            try
+            {
+                var newBounds = _getBounds(device);
+                if (oldBounds.Width > 0 && oldBounds.Height > 0 && newBounds.Width > 0 && newBounds.Height > 0)
+                {
+                    LastResolutionChange = new ResolutionChangeInfo(
+                        device,
+                        new DisplayBounds(oldBounds.X, oldBounds.Y, oldBounds.Width, oldBounds.Height),
+                        new DisplayBounds(newBounds.X, newBounds.Y, newBounds.Width, newBounds.Height));
+                }
+            }
+            catch { }
         }
         catch (Exception ex)
         {
@@ -188,6 +222,7 @@ public sealed class ResolutionSwitcher
     {
         _original = null;
         LastError = null;
+        LastResolutionChange = null;
     }
 
     /// <summary>

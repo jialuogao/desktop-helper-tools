@@ -83,7 +83,11 @@ public sealed class AppContext : Application
     {
         var result = _switcher.Toggle();
         if (result == SwitchResult.Success)
+        {
+            _overlay.ApplyResolutionChange(_switcher.LastResolutionChange);
+            _overlay.EnsureTopmost();
             return;
+        }
 
         string detail = _switcher.LastError ?? DisplayApi.LastError ?? "未返回具体系统信息。";
         string reason = result switch
@@ -102,6 +106,8 @@ public sealed class AppContext : Application
         if (choice == MessageBoxResult.OK &&
             (result == SwitchResult.UnsupportedResolution || result == SwitchResult.NotConfigured))
             OpenSettings();
+
+        _overlay.EnsureTopmost();
     }
 
     /// <summary>打开设置窗口；确定后热更新并持久化。</summary>

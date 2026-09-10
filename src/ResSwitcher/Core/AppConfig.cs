@@ -137,13 +137,13 @@ public static class AppConfigStore
     public static void Save(AppConfig cfg, string filePath)
     {
         LastError = null;
-        string? directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
-        if (!string.IsNullOrEmpty(directory))
-            Directory.CreateDirectory(directory);
-
         string tmp = filePath + ".tmp";
         try
         {
+            string? directory = Path.GetDirectoryName(Path.GetFullPath(filePath));
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
             string json = JsonSerializer.Serialize(cfg, JsonOpts);
             File.WriteAllText(tmp, json);
             if (File.Exists(filePath))

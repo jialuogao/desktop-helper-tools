@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -7,6 +8,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Shapes;
 using System.Windows.Interop;
+using Microsoft.Win32;
 using ResSwitcher.Core;
 
 namespace ResSwitcher.Ui;
@@ -37,6 +39,10 @@ public sealed class OverlayWindow : Window
     private Point _dragStartForm;
     private bool _isDragging;
     private bool _movedBeyondThreshold;
+    private readonly System.Windows.Threading.DispatcherTimer _topmostWatchdog = new()
+    {
+        Interval = TimeSpan.FromSeconds(5)
+    };
 
     public OverlayWindow(AppConfig config,
         Action onToggleRes, Action onTogglePrimary,
@@ -66,8 +72,25 @@ public sealed class OverlayWindow : Window
         SizeToContent = SizeToContent.Manual;
         SourceInitialized += (_, _) =>
         {
-            DisplayApi.ConfigureToolWindow(new WindowInteropHelper(this).Handle);
+            var hwnd = new WindowInteropHelper(this).Handle;
+            DisplayApi.ConfigureToolWindow(hwnd);
+
+            // 挂 WM_WINDOWPOSCHANGING hook
+            var source = HwndSource.FromHwnd(hwnd);
+            if (source is null)
+            {
+                Logger.Warn("无法附加 WM_WINDOWPOSCHANGING hook：HwndSource 为 null");
+            }
+            else
+            {
+                source.AddHook(OnWindowMessage);
+            }
+
             RestoreOrPlaceDefault();
+            EnsureTopmost();
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
+            _topmostWatchdog.Tick += (_, _) => EnsureTopmost();
+            _topmostWatchdog.Start();
         };
 
         // 右键菜单（WPF ContextMenu）
@@ -426,8 +449,59 @@ public sealed class OverlayWindow : Window
 
     public void EnsureTopmost()
     {
-        Topmost = false;
-        Topmost = true;
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        if (!DisplayApi.ForceTopmost(hwnd))
+        {
+            int err = Marshal.GetLastWin32Error();
+            Logger.Warn($"ForceTopmost 失败：Win32Error={err}");
+        }
+    }
+
+    private IntPtr OnWindowMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != DisplayApi.WM_WINDOWPOSCHANGING)
+            return IntPtr.Zero;
+
+        try
+        {
+            var pos = Marshal.PtrToStructure<DisplayApi.WINDOWPOS>(lParam);
+            if (DisplayApi.EnforceTopmostInWindowPos(ref pos))
+            {
+                Marshal.StructureToPtr(pos, lParam, false);
+                // 仅在 z-order 实际变化时记录，避免拖拽/移动期间日志刷屏
+                // 拖拽/移动时 Windows 设 SWP_NOZORDER（0x0004），此时改写 hwndInsertAfter 无实际效果
+                if ((pos.flags & DisplayApi.SWP_NOZORDER) == 0)
+                {
+                    Logger.Info("拦截 WM_WINDOWPOSCHANGING，强制 HWND_TOPMOST");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("WM_WINDOWPOSCHANGING 处理异常", ex);
+        }
+        return IntPtr.Zero;
+    }
+
+    private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode != PowerModes.Resume) return;
+        Logger.Info("系统从休眠/挂起恢复，重新强制 topmost");
+        ScheduleTopmostRetry(TimeSpan.Zero);
+        ScheduleTopmostRetry(TimeSpan.FromMilliseconds(500));
+        ScheduleTopmostRetry(TimeSpan.FromSeconds(2));
+    }
+
+    private void ScheduleTopmostRetry(TimeSpan delay)
+    {
+        Dispatcher.BeginInvoke(new Action(async () =>
+        {
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay);
+            if (IsVisible)
+                EnsureTopmost();
+        }));
     }
 
     public void ApplyConfig(AppConfig config)
@@ -553,6 +627,8 @@ public sealed class OverlayWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _topmostWatchdog.Stop();
+        SystemEvents.PowerModeChanged -= OnPowerModeChanged;
         try
         {
             _config.Button.X = (int)(Left + 10);

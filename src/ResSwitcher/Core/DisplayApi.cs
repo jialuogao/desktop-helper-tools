@@ -50,6 +50,13 @@ public static class DisplayApi
     private const int GWL_EXSTYLE = -20;
     private const long WS_EX_TOOLWINDOW = 0x00000080;
     private const long WS_EX_APPWINDOW = 0x00040000;
+    private const int HWND_TOPMOST = -1;
+    internal const int SWP_NOSIZE = 0x0001;
+    internal const int SWP_NOMOVE = 0x0002;
+    internal const int SWP_NOZORDER = 0x0004;
+    internal const int SWP_NOACTIVATE = 0x0010;
+    internal const int SWP_SHOWWINDOW = 0x0040;
+    internal const int WM_WINDOWPOSCHANGING = 0x0046;
     private const uint MF_STRING = 0x00000000;
     private const uint TPM_RIGHTBUTTON = 0x00000002;
     private const uint TPM_NONOTIFY = 0x00000080;
@@ -117,6 +124,10 @@ public static class DisplayApi
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(IntPtr hwnd, IntPtr hwndInsertAfter,
+        int x, int y, int cx, int cy, uint uFlags);
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern bool Shell_NotifyIconW(uint dwMessage, ref NOTIFYICONDATAW lpData);
@@ -1168,4 +1179,39 @@ public static class DisplayApi
     }
 
     private const uint MONITORINFOF_PRIMARY = 1;
+
+    // ---- Window-level Z 序（置顶层级） ----
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct WINDOWPOS
+    {
+        public IntPtr hwnd;
+        public IntPtr hwndInsertAfter;
+        public int x;
+        public int y;
+        public int cx;
+        public int cy;
+        public uint flags;
+    }
+
+    /// <summary>
+    /// 原子强制窗口进入 topmost 组最顶端。
+    /// 与 WPF Window.Topmost setter 的区别：无短路、无短暂降级窗口、不依赖 WPF 内部实现。
+    /// </summary>
+    internal static bool ForceTopmost(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return false;
+        return SetWindowPos(hwnd, (IntPtr)HWND_TOPMOST, 0, 0, 0, 0,
+            (uint)(SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW));
+    }
+
+    /// <summary>
+    /// 纯函数：若 WINDOWPOS.hwndInsertAfter 非 HWND_TOPMOST，改写为 HWND_TOPMOST 并返回 true。
+    /// </summary>
+    internal static bool EnforceTopmostInWindowPos(ref WINDOWPOS pos)
+    {
+        if (pos.hwndInsertAfter == (IntPtr)HWND_TOPMOST) return false;
+        pos.hwndInsertAfter = (IntPtr)HWND_TOPMOST;
+        return true;
+    }
 }

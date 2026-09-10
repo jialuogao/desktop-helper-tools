@@ -106,14 +106,14 @@ X/Y 为 `int.MinValue`(-2147483648) 表示无记录。`MonitorProfiles` 优先�
 
 ```powershell
 dotnet build -c Release                          # 必须 0 error 0 warning
-dotnet test tests/ResSwitcher.Tests -c Release   # 43 用例
+dotnet test tests/ResSwitcher.Tests -c Release   # 48 用例
 .\build-release.ps1                              # 一键发布到 dist\
 ```
 
 ## 6. 测试体系
 
-自动化（离线、注入 fake）：D1–D15 切换与主屏、C1–C7 配置、A1–A3 自启、L1–L6 日志与显示 API、E1–E3 错误上下文、CCD 索引解码和几何变换，以及托盘原生命令映射用例，共 43 个。L1–L2 覆盖 session 文件命名、异常堆栈和三天前日志清理；D11–D12 覆盖按显示器 profile 隔离与不支持项过滤；D13–D14 覆盖主屏切换与分辨率目标解耦及 `auto` 跟随新主屏；D15 覆盖分辨率切换物理边界变化记录
-手动检查：M1 无控制台；M2 单实例；M3 分辨率切换生效；M4 拖拽手感；M5 右键菜单；M6 设置热更新；M7 不支持分辨率拦截；M8 自启注册表；M9 重启保留；M10 发布可运行；M11 出屏钳制；M12 删配置默认右上角；M13 主屏切换生效；M14 通知区域图标可显示，左键打开设置，右键打开设置/退出菜单，点击其他应用或桌面后菜单关闭。
+自动化（离线、注入 fake）：D1–D15 切换与主屏、C1–C8 配置、A1–A3 自启、L1–L6 日志与显示 API、E1–E3 错误上下文、CCD 索引解码和几何变换、T-Topmost-1/2 置顶层级纯函数，以及托盘原生命令映射用例，共 48 个。C8 覆盖配置保存父路径非法时仍保留 `LastError` 和日志异常类型；L1–L2 覆盖 session 文件命名、异常堆栈和三天前日志清理；D11–D12 覆盖按显示器 profile 隔离与不支持项过滤；D13–D14 覆盖主屏切换与分辨率目标解耦及 `auto` 跟随新主屏；D15 覆盖分辨率切换物理边界变化记录。置顶测试验证纯函数改写和零句柄防御，不模拟真实桌面窗口竞争。
+手动检查：M1 无控制台；M2 单实例；M3 分辨率切换生效；M4 拖拽手感；M5 右键菜单；M6 设置热更新；M7 不支持分辨率拦截；M8 自启注册表；M9 重启保留；M10 发布可运行；M11 出屏钳制；M12 删配置默认右上角；M13 主屏切换生效；M14 通知区域图标可显示，左键打开设置，右键打开设置/退出菜单，点击其他应用或桌面后菜单关闭；M15 长时间挂机（≥ 30 min）+ 休眠重启后按钮仍在最上层；M16 手动打开一个"置顶"窗口（例如浏览器标签页 Pin to top）盖住按钮，然后触发一次按钮交互（拖拽或点击），确认按钮立刻回到最上层；M17 启动后立即检查按钮层级（防止刚启动就被其他 topmost 窗口盖住）。
 
 **回归规则**：任何用例失败 = Blocker；修 bug 先写复现用例。
 
@@ -146,6 +146,6 @@ dotnet test tests/ResSwitcher.Tests -c Release   # 43 用例
 - **exe 路径**：单文件发布用 `Environment.ProcessPath`（Assembly.Location 为空）
 - **日志**：每个进程会话使用独立日志文件名，写入时清理最后写入时间超过 3 天的旧日志
 - **显示 API 兼容性与稳健性**：`CDS_TEST` 通过代表驱动接受模式预检。当前实现优先使用 Windows Display Configuration API（`QueryDisplayConfig`/`SetDisplayConfig`）提交完整活动拓扑，并在应用后通过 `GetCurrentResolution` / `GetPrimaryDeviceName` 进行实际效果读回校验；当现代 API 失败回退到 legacy `ChangeDisplaySettingsExW` 路径时，先执行 `CDS_TEST` 预检，通过后再应用并校验读回，避免直接提交不受支持模式导致驱动崩溃或显示异常。
-- **悬浮窗层级与位置缩放**：在每次分辨率、主屏或配置变更后，悬浮窗主动重置 `Topmost` 属性以确保层级不会被其他窗口抢占；分辨率切换成功后，UI 层通过 `ApplyResolutionChange` 将悬浮窗物理坐标按目标显示器缩放比例等比调整并钳制（ClampToScreens），防止分辨率调低时按钮出屏或落到相邻显示器。
+- **悬浮窗层级与位置缩放**：悬浮窗通过 Win32 `SetWindowPos(HWND_TOPMOST)` 原子操作强制进入 topmost 组最顶端（替代脆弱的 WPF `Topmost` 属性开关的 `false→true` 降级-提升舞蹈）；启动时以及每 5 秒由不激活窗口的看门狗重断言一次，休眠恢复后立即、500ms、2 秒再次重试；`WM_WINDOWPOSCHANGING` 消息 hook 在 Windows 显式重定位我方窗口时强制 `WINDOWPOS.hwndInsertAfter = HWND_TOPMOST`。`HWND_TOPMOST` 仍只保证高于普通窗口，不能绝对压过其他 topmost 窗口；独占全屏等系统管理的显示面不在保证范围内。分辨率切换成功后，UI 层通过 `ApplyResolutionChange` 将悬浮窗物理坐标按目标显示器缩放比例等比调整并钳制（ClampToScreens），防止分辨率调低时按钮出屏或落到相邻显示器。
 - **WPF/WinForms DPI**：WPF 单位是设备无关像素（1/96"），与 Win32 物理像素换算需 `CompositionTarget.TransformToDevice`
 - **ApplicationContext→Application**：WPF 用 `Application` 子类作组合根，`MainWindow` 绑定悬浮窗，关闭即退出

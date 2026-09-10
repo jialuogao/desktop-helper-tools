@@ -17,7 +17,7 @@
 - `AppConfigStore.Load(string filePath)` and `Save(AppConfig, string filePath)` are required testable path overloads. Tests use temporary directories and do not touch the real application configuration.
 - Loading normalizes null nested sections, filters invalid or duplicate resolution items, clamps button size to `24..128`, clamps idle opacity to `0.1..1.0`, and supplies defaults for missing values.
 - `MonitorProfiles` stores an independent resolution list per display. Each profile uses a stable monitor device ID when available, with display name and `DISPLAYn` name retained for diagnostics and compatibility matching. The legacy global `Collection` remains readable; the settings UI migrates it to the selected physical display on first save.
-- Saving serializes to `<config>.tmp`, then uses `File.Replace` for an existing file or `File.Move` for a new file. The temporary file is removed in a `finally` block.
+- Saving creates the parent directory inside the same exception boundary as serialization and file replacement, then serializes to `<config>.tmp`, uses `File.Replace` for an existing file or `File.Move` for a new file, and removes the temporary file in a `finally` block. Directory-creation and write failures set `LastError`, write the exception context to the session log, and rethrow so the UI can report the failed save.
 
 ## Session Logging
 
@@ -26,6 +26,7 @@
 - Writes are serialized by a process-local lock. Each write attempts to delete `reswitcher-*.log` files whose UTC last-write time is older than three days.
 - Logging failures are intentionally swallowed so a filesystem or permission problem cannot break the primary application flow. Error messages retain exception type, message, inner exceptions, and stack traces.
 - The logger session file is also used by the tests; L1 and L2 cover session naming, exception details, and old-log cleanup.
+- C8 covers an invalid parent path during configuration save and verifies that the failure retains both the user-facing `LastError` context and the exception type in the session log.
 
 ## Autostart
 

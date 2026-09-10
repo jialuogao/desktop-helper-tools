@@ -10,7 +10,7 @@
 - Configuration tests use `AppConfigStore` path overloads and unique temporary directories. They cover missing/corrupt files, null nested sections, normalization, round trips, and atomic-save cleanup.
 - Logger tests use the process session log. L1 verifies session filename/content; L2 verifies exception details and removal of a uniquely named stale log older than three days.
 - Display geometry, `DEVMODEW` layout, and `Resolution` record equality tests exercise real monitor enumeration, managed ABI size, and record string representations. Autostart tests touch the current user's `Run` key and restore its original state in `finally` blocks.
-- The current suite contains 43 tests: D1-D15 switcher behavior, C1-C7 configuration, A1-A3 autostart, L1-L6 logging/display API, E1-E3 error context, three CCD virtual-mode index cases, two CCD topology geometry tests, one resolution record equality test, and three native tray-menu command-mapping cases. D15 verifies `LastResolutionChange` tracking upon resolution switching. The native menu's outside-click behavior remains covered by the M14 manual acceptance check rather than an automated desktop UI test.
+- The current suite contains 48 tests: D1-D15 switcher behavior, C1-C8 configuration, A1-A3 autostart, L1-L6 logging/display API, E1-E3 error context, three CCD virtual-mode index cases, two CCD topology geometry tests, one resolution record equality test, four topmost helper cases, and three native tray-menu command-mapping cases. C8 verifies configuration-save error context when the parent path is invalid; the topmost cases cover the pure z-order rewrite helper and zero-handle defense rather than a full desktop z-order reproduction. D15 verifies `LastResolutionChange` tracking upon resolution switching. The native menu's outside-click behavior remains covered by the M14 manual acceptance check rather than an automated desktop UI test.
 
 ## Required Validation
 
@@ -27,7 +27,7 @@ dotnet test tests/ResSwitcher.Tests -c Release
 
 ## Manual Acceptance
 
-- Core tests do not cover WPF rendering, input routing, window lifetime, visual opacity, notification-area behavior, or real display-driver commits. Use the M1-M14 manual checklist in [`doc/PROJECT.md`](../PROJECT.md) after relevant UI or display changes.
+- Core tests do not cover WPF rendering, input routing, window lifetime, visual opacity, notification-area behavior, real desktop z-order competition, or real display-driver commits. Use the M1-M17 manual checklist in [`doc/PROJECT.md`](../PROJECT.md) after relevant UI or display changes.
 - M3 and M13 are hardware-dependent. A passing mode enumeration, CCD validation, or `CDS_TEST` is not sufficient to claim that a display change was committed; verify the actual resolution or primary-monitor result on the target machine.
 
 ## Regression Rules

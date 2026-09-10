@@ -22,6 +22,7 @@ public sealed class AppContext : Application
             Logger.Error("UI 线程未处理异常", e.Exception);
             MessageBox.Show($"发生错误：{e.Exception.GetType().Name}: {e.Exception.Message}\n\n详情见日志：{Logger.LogFile}",
                 "ResSwitcher", MessageBoxButton.OK, MessageBoxImage.Error);
+            try { _overlay!.EnsureTopmost(); } catch { /* _overlay 可能尚未初始化 */ }
             e.Handled = true; // 尽量不崩溃
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -56,9 +57,15 @@ public sealed class AppContext : Application
         }
 
         if (configLoadError is not null)
+        {
             ShowProblem("配置文件无法读取", $"程序已使用默认设置启动。\n\n{configLoadError}\n\n请右键悬浮按钮 →「设置…」重新保存配置。\n\n日志：{Logger.LogFile}", MessageBoxImage.Warning);
+            _overlay.EnsureTopmost();
+        }
         if (AutostartManager.LastError is not null)
+        {
             ShowProblem("开机自启未能同步", $"系统没有完成开机自启设置。\n\n{AutostartManager.LastError}\n\n请检查当前用户注册表权限，或在设置中取消勾选开机自动启动。\n\n日志：{Logger.LogFile}", MessageBoxImage.Warning);
+            _overlay.EnsureTopmost();
+        }
     }
 
     /// <summary>左区单击：切换主显示器。</summary>
@@ -75,6 +82,7 @@ public sealed class AppContext : Application
             ShowProblem("主屏切换失败",
                 $"系统没有完成主屏切换。\n\n系统信息：{detail}\n\n可尝试：确认已连接至少两台显示器，并在 Windows 显示设置中确认它们处于扩展模式。\n\n日志：{Logger.LogFile}",
                 MessageBoxImage.Warning);
+            _overlay.EnsureTopmost();
         }
     }
 
@@ -118,6 +126,7 @@ public sealed class AppContext : Application
             Logger.Info("打开设置窗口");
             var dlg = new SettingsWindow(_config) { Owner = _overlay };
             dlg.ShowDialog();
+            _overlay.EnsureTopmost();
             if (dlg.Confirmed)
             {
                 AutostartManager.SetEnabled(_config.Autostart);
@@ -134,6 +143,7 @@ public sealed class AppContext : Application
             Logger.Error("设置窗口异常", ex);
             MessageBox.Show(_overlay, $"设置窗口出错：{ex.GetType().Name}: {ex.Message}\n详情见日志：{Logger.LogFile}", "ResSwitcher",
                 MessageBoxButton.OK, MessageBoxImage.Error);
+            _overlay.EnsureTopmost();
         }
     }
 
@@ -147,6 +157,7 @@ public sealed class AppContext : Application
         {
             Logger.Error("保存配置失败", ex);
             ShowProblem("配置保存失败", $"当前设置或悬浮按钮位置没有写入磁盘。\n\n异常：{ex.GetType().Name}: {ex.Message}\n\n请确认配置目录可写：%APPDATA%\\ResSwitcher\n\n日志：{Logger.LogFile}", MessageBoxImage.Error);
+            _overlay.EnsureTopmost();
         }
     }
 

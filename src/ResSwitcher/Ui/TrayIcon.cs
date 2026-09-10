@@ -58,16 +58,23 @@ public sealed class TrayIcon : IDisposable
             return;
 
         uint command = DisplayApi.ShowTrayContextMenu(_source.Handle);
-        switch (ResolveMenuCommand(command))
+        TrayMenuAction action = ResolveMenuCommand(command);
+        switch (action)
         {
             case TrayMenuAction.Settings:
                 ShowSettings();
                 break;
             case TrayMenuAction.Exit:
-                if (_owner is OverlayWindow overlay)
-                    overlay.ExitFromTray();
+                if (_owner is OverlayWindow exitOverlay)
+                    exitOverlay.ExitFromTray();
+                return;  // Exit 之后即将 Shutdown，不必再 ForceTopmost
+            default:
                 break;
         }
+
+        // _owner 类型为 Window，须 cast 为 OverlayWindow 才能访问 EnsureTopmost
+        if (_owner is OverlayWindow topOverlay)
+            topOverlay.EnsureTopmost();
     }
 
     internal static TrayMenuAction ResolveMenuCommand(uint command) => command switch

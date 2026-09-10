@@ -139,4 +139,18 @@ public class ConfigStoreTests : IDisposable
         // 无 .tmp 残留
         Assert.False(File.Exists(_path + ".tmp"), "Save 后不应残留 .tmp 文件");
     }
+
+    // C8：目录创建失败时仍保留可诊断错误上下文
+    [Fact]
+    public void C8_Save_InvalidParent_PreservesErrorContext()
+    {
+        string parentFile = Path.Combine(_dir, "not-a-directory");
+        File.WriteAllText(parentFile, "占位");
+        string path = Path.Combine(parentFile, "config.json");
+
+        Assert.ThrowsAny<IOException>(() => AppConfigStore.Save(new AppConfig(), path));
+
+        Assert.Contains("保存配置文件失败", AppConfigStore.LastError);
+        Assert.Contains("IOException", File.ReadAllText(Logger.LogFile));
+    }
 }

@@ -2,6 +2,7 @@
 **/bin/
 **/obj/
 dist/
+local-dotnet-home/
 
 # Visual Studio / VS Code 本地状态
 .vs/
